@@ -1,8 +1,25 @@
 const jwt = require("jsonwebtoken");
 
 const auth = (email) => {
-  const token = jwt.sign({ email }, process.env.JWT_SECRET);
+  // create a token with expiration time 1 hour
+  const token = jwt.sign({ email }, process.env.JWT_SECRET, {
+    expiresIn: "1h",
+  });
   return token;
 };
 
-module.exports = auth;
+const verifyToken = (res, req) => {
+  const token = req?.headers?.authorization?.split(" ")[1];
+
+  if (!token) {
+    return res.status(401).send("Unauthorized");
+  }
+  jwt.verify(token, process.env.JWT_SECRET, (err, decoded) => {
+    if (err) {
+      return res.status(401).send("Unauthorized");
+    }
+    return true;
+  });
+};
+
+module.exports = { auth, verifyToken };

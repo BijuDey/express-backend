@@ -4,7 +4,7 @@ const app = express();
 const port = 3000;
 const mongoose = require("mongoose");
 const User = require("./schema");
-const auth = require("./jwt");
+const { auth, verifyToken } = require("./jwt");
 const { hashPassword, comparePassword } = require("./functions");
 
 app.use(express.json());
@@ -29,7 +29,10 @@ app.post("/user", async (req, res) => {
     user.password = await hashPassword(data.password);
     const result = await user.save();
 
-    res.status(201).send({ result, token });
+    res.status(201).send({
+      data: { userId: result._id, name: result?.name, email: result?.email },
+      token,
+    });
   }
 });
 
@@ -48,6 +51,43 @@ app.post("/login", async (req, res) => {
     }
   } catch (err) {
     res.status(500).send("Internal server error");
+  }
+});
+
+app.get("/allUsers", async (req, res) => {
+  verifyToken(res, req);
+  const users = await User.find({}, { email: 1, name: 1, _id: 1 });
+  if (users.length > 0) {
+    res.send(users);
+  } else {
+    res.status(404).send("No users found");
+  }
+});
+
+app.put("/user/:id", async (req, res) => {
+  verifyToken(res, req);
+  const id = req.params.id;
+  const data = req.body;
+  try {
+    const updatedUser = await User.findByIdAndUpdate(
+      id,
+      { $set: data },
+      { new: true }
+    );
+
+    if (!updatedUser) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    res.json({
+      data: {
+        name: updatedUser?.name,
+        email: updatedUser?.email,
+        userId: updatedUser?._id,
+      },
+    });
+  } catch (error) {
+    res.status(500).json({ error: "Server error" });
   }
 });
 
